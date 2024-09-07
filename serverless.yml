@@ -1,0 +1,85 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: serverlesstest1322
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: bookmarks-rest-api
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:SignUp
+      Resource:
+        Fn::GetAtt:
+          - CognitoUserPool
+          - Arn
+
+functions:
+  home:
+    handler: src/functions/home.handler
+    events:
+      - http:
+          path: /
+          method: GET
+          authorizer:
+            name: authorizerFunc
+            type: request
+            identitySource: method.request.header.Authorization
+  createUser:
+    handler: src/functions/signup.handler
+    events:
+      - http:
+          path: /signup
+          method: POST
+    environment:
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+  confirmSignup:
+    handler: src/functions/confirmSignup.handler
+    events:
+      - http:
+          path: /confirmSignup
+          method: POST
+    environment:
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+  login:
+    handler: src/functions/login.handler
+    events:
+      - http:
+          path: /login
+          method: POST
+    environment:
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+  authorizerFunc:
+    handler: src/functions/authorizer.handler
+    environment:
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+      COGNITO_USER_POOL_ID:
+        Ref: CognitoUserPool
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: bookmarks-cognito-user-pool
+        Schema:
+          - AttributeDataType: String
+            Name: email
+        AutoVerifiedAttributes:
+          - email
+        UsernameAttributes:
+          - email
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: bookmarks-user-pool-client
+        UserPoolId:
+          Ref: CognitoUserPool
+        ExplicitAuthFlows:
+          - USER_PASSWORD_AUTH
